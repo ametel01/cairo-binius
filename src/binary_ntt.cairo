@@ -1,7 +1,5 @@
-use core::array::ArrayTrait;
 use core::traits::Into;
-use core::option::OptionTrait;
-use core::traits::TryInto;
+use core::traits::BitAnd;
 use alexandria_data_structures::array_ext::SpanTraitExt;
 use core::array::SpanTrait;
 use binius::binary_field::{BinaryFieldElement as B, BnFOpsTrait, bnf};
@@ -46,6 +44,44 @@ fn get_Wi_eval(dim: usize, pt: u128, ref cache: Felt252Vec<u128>) -> B {
         cache.set(dim, new_value.value);
     }
     new_value
+}
+
+fn get_Bi(mut i: usize) -> Array<B> {
+    let mut opoly = array![bnf(1)];
+    let mut j = 0;
+    while i > 0 {
+        let i_and_1 = BitAnd::bitand(i, 1);
+        if i_and_1 == 1 {
+            opoly = PolyOps::mul_polys(opoly.clone(), get_Wi(j));
+        }
+        i = BitShift::shr(i, 1);
+        j += 1;
+    };
+    opoly
+}
+
+fn get_basis(bits: usize) -> Array<Array<B>> {
+    let mut out = array![];
+    let mut i = 0_u32;
+    while i < bits {
+        out.append(get_Bi(i));
+        i += 1;
+    };
+    out
+}
+
+fn eval_poly_in_basis(poly: Span<B>, i: B) -> B {
+    let poly_len = poly.len();
+    let mut basis = get_basis(poly_len);
+    let mut out = bnf(0);
+    let mut j = 0;
+    while j < poly_len {
+        let coeff = *poly.at(j);
+        let basis_item = basis.at(j);
+        out = out + PolyOps::eval_poly_at(basis_item.span(), i) * coeff;
+        j += 1;
+    };
+    out
 }
 
 fn additive_ntt(vals: Span<B>, start: u128, ref cache: Felt252Vec<u128>) -> Array<B> {
@@ -154,6 +190,65 @@ mod test {
     }
 
     #[test]
+    fn get_Bi_test() {
+        let res = super::get_Bi(0);
+        assert!(res == array![bnf(1)], "got {:?}", res);
+
+        let res = super::get_Bi(1);
+        assert!(res == array![bnf(0), bnf(1)], "got {:?}", res);
+
+        let res = super::get_Bi(2);
+        assert!(res == array![bnf(0), bnf(1), bnf(1)], "got {:?}", res);
+
+        let res = super::get_Bi(15);
+        assert!(
+            res == array![
+                bnf(0),
+                bnf(0),
+                bnf(0),
+                bnf(0),
+                bnf(2),
+                bnf(3),
+                bnf(1),
+                bnf(0),
+                bnf(1),
+                bnf(1),
+                bnf(2),
+                bnf(3),
+                bnf(1),
+                bnf(0),
+                bnf(1),
+                bnf(1)
+            ],
+            "got {:?}",
+            res
+        );
+    }
+
+    #[test]
+    fn get_basis_test() {
+        let res = super::get_basis(5);
+        assert!(
+            res == array![
+                array![bnf(1)],
+                array![bnf(0), bnf(1)],
+                array![bnf(0), bnf(1), bnf(1)],
+                array![bnf(0), bnf(0), bnf(1), bnf(1)],
+                array![bnf(0), bnf(3), bnf(0), bnf(0), bnf(3)]
+            ],
+            "got {:?}",
+            res
+        );
+    }
+
+    #[test]
+    fn eval_poly_in_basis_test() {
+        let poly = array![bnf(1), bnf(2), bnf(5)];
+        let res = super::eval_poly_in_basis(poly.span(), bnf(2));
+        assert!(res == bnf(7), "got {:?}", res);
+    }
+
+    #[test]
     fn additive_ntt_test() {
         let vals = array![bnf(1), bnf(2), bnf(3), bnf(4)];
         let mut cache = VecTrait::<Felt252Vec, u128>::new();
@@ -178,5 +273,22 @@ mod test {
             "got {:?}",
             res
         );
+    }
+
+    #[test]
+    fn test_both_additive() {
+        let poly = array![bnf(1), bnf(3), bnf(9), bnf(27), bnf(81), bnf(243), bnf(217), bnf(139)];
+        let mut cache = VecTrait::<Felt252Vec, u128>::new();
+
+        let ntt = super::additive_ntt(poly.span(), 0, ref cache);
+        let mut poly_basis = array![];
+        let poly_cp = poly.clone();
+        let mut i = 0_u32;
+        while i < 8 {
+            poly_basis.append(super::eval_poly_in_basis(poly.span(), bnf(i.into())));
+            i += 1;
+        };
+        assert!(ntt == poly_basis, "got {:?}", ntt);
+        assert!(super::inv_additive_ntt(ntt.span(), 0, ref cache) == poly_cp, "got {:?}", ntt);
     }
 }
