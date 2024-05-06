@@ -10,7 +10,7 @@ This repository contains Cairo code for performing arithmetic operations on bina
 
 The code in this repository is inspired by the following research paper:
 
-- "Succinct Arguments over Towers of Binary Fields" by Succinct Arguments over Towers of Binary Fields" by Benjamin E. Diamond and Jim Posen . Available at: [https://eprint.iacr.org/2023/1784.pdf](https://eprint.iacr.org/2023/1784.pdf)
+- "Succinct Arguments over Towers of Binary Fields" by Benjamin E. Diamond and Jim Posen . Available at: [https://eprint.iacr.org/2023/1784.pdf](https://eprint.iacr.org/2023/1784.pdf)
 
 Additionally, a Python implementation of the concepts discussed in the paper can be found in the following GitHub repository:
 
@@ -37,4 +37,4 @@ The code provides utility functions for polynomial operations, including:
 
 ## Testing
 
-The code includes test modules for each section, which contain unit tests to verify the correctness of the implemented functions. To run the tests, use the `cargo test` command.
+The code includes test modules for each section, which contain unit tests to verify the correctness of the implemented functions. To run the tests, use the `snforge test` command.
